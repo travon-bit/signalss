@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Trend Signals: BTC & Gold</title>
+<title>Regime Signals v3: BTC & Gold</title>
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--tx:#14181f;--mu:#667085;--bd:#e3e6eb;--up:#0a9f5c;--dn:#d6334a;--ac:#2f6df6;--wn:#b7791f;color-scheme:light}
 @media(prefers-color-scheme:dark){:root{--bg:#0e1116;--card:#171b22;--tx:#eef1f6;--mu:#8b95a5;--bd:#262c37;--up:#2ecc8b;--dn:#ff5d73;--ac:#6c9bff;--wn:#e8b04b;color-scheme:dark}}
 *{box-sizing:border-box}html,body{margin:0}
 body{background:var(--bg);color:var(--tx);font:15px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;padding:max(12px,env(safe-area-inset-top)) 12px max(16px,env(safe-area-inset-bottom));max-width:640px;margin:auto}
 h1{font-size:18px;margin:4px 0 10px}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
 .tab{flex:1;padding:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;font-weight:600;font-size:15px}
 .tab.on{background:var(--ac);color:#fff;border-color:var(--ac)}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-top:10px}
@@ -17,64 +17,91 @@ h1{font-size:18px;margin:4px 0 10px}
 .sig{font-size:22px;font-weight:800}
 .up{color:var(--up)}.dn{color:var(--dn)}.wn{color:var(--wn)}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
-.grid div{background:var(--bg);border-radius:10px;padding:8px 10px}
+.grid>div{background:var(--bg);border-radius:10px;padding:8px 10px}
 .grid b{display:block;font-size:16px}
-label{font-size:13px;color:var(--mu)}
+.grid span{display:block;font-size:12px;color:var(--mu);font-weight:400}
+label{font-size:13px;color:var(--mu);display:block}
 input,select{width:100%;padding:9px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font-size:15px}
-canvas{width:100%;height:190px;display:block}
-details summary{font-weight:600;cursor:pointer}
+input[type=checkbox]{width:auto;margin-right:6px}
+.ck{display:flex;align-items:center;font-size:14px;color:var(--tx);margin-top:8px}
+canvas{width:100%;height:260px;display:block}
+summary{font-weight:600;cursor:pointer}
 details p,details li{font-size:13.5px;color:var(--mu);margin:6px 0}
 </style></head><body>
-<h1>Trend Signals · BTC &amp; Gold</h1>
+<h1>Regime Signals v3 · BTC &amp; Gold</h1>
 <div class="row">
  <button class="tab on" id="tBTC">₿ BTC/USDT</button>
  <button class="tab" id="tGOLD">🪙 Gold (PAXG)</button>
 </div>
 <div class="row" style="margin-top:8px">
- <div style="flex:1"><label>Timeframe</label><select id="tf"><option value="1h">1 hour</option><option value="4h" selected>4 hour (recommended)</option><option value="1d">Daily</option></select></div>
+ <div style="flex:1"><label>Timeframe</label><select id="tf"><option value="15m">15 min</option><option value="30m">30 min</option><option value="1h" selected>1 hour</option><option value="4h">4 hour</option><option value="1d">Daily</option></select></div>
  <div style="flex:1"><label>Account ($)</label><input id="bal" type="number" value="1000" inputmode="decimal"></div>
- <div style="flex:1"><label>Risk / trade (%)</label><input id="risk" type="number" value="1" step="0.25" inputmode="decimal"></div>
+ <div style="flex:1"><label>Risk (%)</label><input id="risk" type="number" value="1" step="0.25" inputmode="decimal"></div>
 </div>
+<div class="row" style="margin-top:8px"><div style="flex:1"><label>Broker price now (optional: shifts all levels to match your broker)</label><input id="bp" type="number" inputmode="decimal" placeholder="e.g. your XAUUSD price"></div></div>
 
-<div class="card"><div class="mu" id="sym">—</div><div class="big" id="px">Loading…</div><div class="mu" id="upd"></div></div>
+<div class="card"><div class="mu" id="sym">—</div><div class="big" id="px">Loading…</div><div class="mu" id="live"></div><div class="mu" id="upd"></div><div class="mu" id="sent" style="margin-top:6px"></div></div>
+
+<div class="card"><canvas id="cv"></canvas><div class="mu" id="legend"></div></div>
+
+<div class="card"><div class="mu">Market regime</div><div class="sig" id="reg">—</div><div class="mu" id="regd"></div></div>
 
 <div class="card">
- <div class="mu">Signal (last closed candle)</div>
+ <div class="mu">Signal (last closed candles)</div>
  <div class="sig" id="sig">—</div><div class="mu" id="why"></div>
  <div class="grid" id="lv"></div>
 </div>
 
-<div class="card"><canvas id="cv"></canvas><div class="mu" id="legend"></div></div>
+<div class="card"><b>Zones &amp; sniper plan</b><div class="grid" id="zn"></div></div>
 
 <div class="card">
- <b>Strategy backtest on loaded candles</b>
- <div class="mu">Same rules, ~1000 candles, 0.1% fee per side, ATR stop + trailing exit.</div>
+ <b>Backtest (same rules, ~1000 candles, 0.2% round-trip cost)</b>
  <div class="grid" id="bt"></div>
  <div class="mu" id="btn" style="margin-top:8px"></div>
 </div>
 
-<div class="card"><details><summary>Research behind the rules</summary>
-<ul>
-<li>Public backtests of BTC (2017 bull run, 2023, and a 49-strategy test on Binance data) found single-indicator RSI and MACD often lag buy-and-hold or lose; EMA crossover and breakout trend-following ranked best, but mostly in a strong bull market.</li>
-<li>High win-rate mean-reversion setups (RSI, Bollinger) showed severe drawdowns. Win rate matters less than average win vs average loss.</li>
-<li>Gold vendors and researchers favor 4H/Daily trend-following: a long-term MA filter, breakout or pullback entries, ATR volatility filter, ATR trailing stop. Published gold results are vendor claims, not verified.</li>
-<li>Risk practice: 1% of equity per trade, stop at ~2.5x ATR, no fixed take-profit, let a trailing stop exit.</li>
-<li><b>This app combines those ideas:</b> trend filter (EMA 50/200), entry on 20-bar breakout or RSI pullback in trend, volatility filter, 2.5x ATR stop, trailing stop, 1% sizing.</li>
-</ul>
-<p>Trend systems win maybe 35–45% of the time and endure long losing streaks in sideways markets. Backtests came from public posts with bull-market bias, so expect weaker live results.</p></details></div>
+<div class="card"><details><summary>⚙️ Settings</summary>
+<div class="row" style="margin-top:8px">
+ <div style="flex:1"><label>EMA fast</label><input id="ef" type="number" value="50"></div>
+ <div style="flex:1"><label>EMA slow</label><input id="es" type="number" value="200"></div>
+ <div style="flex:1"><label>Stop (×ATR)</label><input id="sm" type="number" value="2.5" step="0.25"></div>
+ <div style="flex:1"><label>ADX trend ≥</label><input id="adx" type="number" value="22"></div>
+</div>
+<div class="ck"><input type="checkbox" id="rng" checked>Range mode (bounces when choppy)</div>
+<div class="ck"><input type="checkbox" id="snp" checked>Sniper mode (liquidity sweep reversals)</div>
+<div class="ck"><input type="checkbox" id="htf" checked>Higher-timeframe trend must agree with trend entries</div>
+<div class="ck"><input type="checkbox" id="sess" checked>Gold session filter (07:00–20:00 UTC only)</div>
+<div class="ck"><input type="checkbox" id="news">News blackout (CPI / Fed / NFP): no signals</div>
+</details></div>
 
-<div class="card mu" style="border-color:var(--wn)">⚠️ Educational tool, not financial advice. Signals are math on past prices and will often be wrong. Paper-trade first and risk only what you can afford to lose. Gold uses PAXG (a gold-backed token), which can differ slightly from spot gold.</div>
+<div class="card"><details><summary>How it works</summary>
+<ul>
+<li><b>Regime:</b> ADX, efficiency ratio and Choppiness Index (CHOP, 61.8 = choppy) decide trending, ranging or in between.</li>
+<li><b>Trending:</b> 20-bar breakout or RSI pullback, EMA trend filter, higher-timeframe agreement, ATR stop with trailing exit.</li>
+<li><b>Ranging:</b> buy below the lower Bollinger band with RSI under 30 (sell above upper band with RSI over 70). Target is the middle band, stop 1.5×ATR, exit early if the market starts trending.</li>
+<li><b>Sniper:</b> price sweeps the 20-bar low (or high), then a candle closes back inside with a rejection wick. Stop just beyond the wick, target 2R. In trending markets only with the trend.</li>
+<li><b>In between or news day:</b> no trade.</li>
+</ul>
+<p>Sweep and zone setups come mostly from tutorials, not independent testing. Trust them only if the backtest agrees on more than one timeframe and asset. 15m and 30m backtests cover just days of data, so they are noisy.</p></details></div>
+
+<div class="card mu" style="border-color:var(--wn)">⚠️ Educational tool, not financial advice. Signals are math on past prices and will often be wrong. Paper-trade first and risk only what you can afford to lose. Gold uses PAXG, which can differ from spot gold.</div>
 
 <script>
 const $=id=>document.getElementById(id);
 const SYM={BTC:'BTCUSDT',GOLD:'PAXGUSDT'};
-let asset='BTC';
+let asset='BTC',S={d:null,D:null,I:null,lv:null,Z:[],sup:null,res:null,off:0,dec:2},ws=null,tok=0,hostI=0,tmr=0;
+const HOSTS=['wss://stream.binance.com:9443/ws/','wss://data-stream.binance.vision/ws/'];
+const HTFM={'15m':'1h','30m':'1h','1h':'4h','4h':'1d','1d':null},MS={'1h':36e5,'4h':144e5,'1d':864e5};
 const fmt=(v,d)=>v.toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
+const IDS=['tf','bal','risk','ef','es','sm','adx','rng','snp','htf','sess','news'];
+try{const s=JSON.parse(localStorage.getItem('rs3')||'{}');IDS.forEach(i=>{if(i in s){const e=$(i);e.type==='checkbox'?e.checked=s[i]:e.value=s[i]}})}catch(e){}
+function save(){try{const s={};IDS.forEach(i=>{const e=$(i);s[i]=e.type==='checkbox'?e.checked:e.value});localStorage.setItem('rs3',JSON.stringify(s))}catch(e){}}
+const getCfg=()=>({f:+$('ef').value||50,s:+$('es').value||200,sm:+$('sm').value||2.5,adx:+$('adx').value||22,rng:$('rng').checked,snp:$('snp').checked,htf:$('htf').checked,sess:$('sess').checked,news:$('news').checked});
 
-async function load(){
+async function load(iv){
   for(const h of['https://api.binance.com','https://data-api.binance.vision']){
     try{
-      const r=await fetch(`${h}/api/v3/klines?symbol=${SYM[asset]}&interval=${$('tf').value}&limit=1000`);
+      const r=await fetch(`${h}/api/v3/klines?symbol=${SYM[asset]}&interval=${iv}&limit=1000`);
       if(!r.ok)continue;
       return (await r.json()).map(k=>({t:k[0],o:+k[1],h:+k[2],l:+k[3],c:+k[4]}));
     }catch(e){}
@@ -83,102 +110,193 @@ async function load(){
 }
 function ema(a,n){const k=2/(n+1),o=[a[0]];for(let i=1;i<a.length;i++)o.push(a[i]*k+o[i-1]*(1-k));return o}
 function wilder(a,n){const o=[];let p=a[0];for(let i=0;i<a.length;i++){p=i<n?(p*i+a[i])/(i+1):(p*(n-1)+a[i])/n;o.push(p)}return o}
-function ind(d){
-  const c=d.map(x=>x.c);
+function ind(d,cfg){
+  const c=d.map(x=>x.c),n=d.length;
   const tr=d.map((x,i)=>i?Math.max(x.h-x.l,Math.abs(x.h-d[i-1].c),Math.abs(x.l-d[i-1].c)):x.h-x.l);
   const g=c.map((v,i)=>i?Math.max(v-c[i-1],0):0),L=c.map((v,i)=>i?Math.max(c[i-1]-v,0):0);
-  const ag=wilder(g,14),al=wilder(L,14);
-  const atr=wilder(tr,14);
-  const atrAvg=atr.map((_,i)=>{let s=0,n=0;for(let j=Math.max(0,i-49);j<=i;j++){s+=atr[j];n++}return s/n});
-  return{e20:ema(c,20),e50:ema(c,50),e200:ema(c,200),atr,atrAvg,rsi:ag.map((v,i)=>100-100/(1+v/(al[i]||1e-9)))};
+  const ag=wilder(g,14),al=wilder(L,14),atr=wilder(tr,14);
+  const atrAvg=atr.map((_,i)=>{let s=0,m=0;for(let j=Math.max(0,i-49);j<=i;j++){s+=atr[j];m++}return s/m});
+  const pdm=d.map((x,i)=>{if(!i)return 0;const u=x.h-d[i-1].h,w=d[i-1].l-x.l;return u>w&&u>0?u:0});
+  const mdm=d.map((x,i)=>{if(!i)return 0;const u=x.h-d[i-1].h,w=d[i-1].l-x.l;return w>u&&w>0?w:0});
+  const pd=wilder(pdm,14).map((v,i)=>100*v/(atr[i]||1e-9)),md=wilder(mdm,14).map((v,i)=>100*v/(atr[i]||1e-9));
+  const adx=wilder(pd.map((v,i)=>100*Math.abs(v-md[i])/((v+md[i])||1e-9)),14);
+  const er=c.map((v,i)=>{if(i<20)return .5;let s=0;for(let j=i-19;j<=i;j++)s+=Math.abs(c[j]-c[j-1]);return Math.abs(v-c[i-20])/(s||1e-9)});
+  const chop=c.map((_,i)=>{if(i<14)return 50;let s=0,hh=-1e18,ll=1e18;for(let j=i-13;j<=i;j++){s+=tr[j];hh=Math.max(hh,d[j].h);ll=Math.min(ll,d[j].l)}return 100*Math.log10(s/((hh-ll)||1e-9))/Math.log10(14)});
+  const bm=[],bu=[],bl=[];
+  for(let i=0;i<n;i++){if(i<19){bm.push(c[i]);bu.push(c[i]);bl.push(c[i]);continue}
+    let s=0;for(let j=i-19;j<=i;j++)s+=c[j];const m=s/20;let q=0;for(let j=i-19;j<=i;j++)q+=(c[j]-m)**2;const sd=Math.sqrt(q/20);bm.push(m);bu.push(m+2*sd);bl.push(m-2*sd)}
+  return{ef:ema(c,cfg.f),es:ema(c,cfg.s),atr,atrAvg,adx,er,chop,bm,bu,bl,rsi:ag.map((v,i)=>100-100/(1+v/(al[i]||1e-9)))};
 }
 function rng(d,i,n,f){let v=f==='h'?-1e18:1e18;for(let j=i-n;j<i;j++)v=f==='h'?Math.max(v,d[j].h):Math.min(v,d[j].l);return v}
-function sigAt(d,I,i){
-  const c=d[i].c,up=c>I.e200[i]&&I.e50[i]>I.e200[i],dn=c<I.e200[i]&&I.e50[i]<I.e200[i];
-  const vol=I.atr[i]>I.atrAvg[i]*0.8;
-  if(up&&vol&&c>rng(d,i,20,'h'))return{s:1,t:'20-bar breakout'};
-  if(dn&&vol&&c<rng(d,i,20,'l'))return{s:-1,t:'20-bar breakdown'};
-  if(up&&I.rsi[i-1]<45&&I.rsi[i]>=45&&c>I.e50[i])return{s:1,t:'RSI pullback in uptrend'};
-  if(dn&&I.rsi[i-1]>55&&I.rsi[i]<=55&&c<I.e50[i])return{s:-1,t:'RSI bounce in downtrend'};
+function regime(I,i,cfg){
+  const a=I.adx[i],e=I.er[i],ch=I.chop[i];
+  if(a>=cfg.adx&&e>=.25&&ch<61.8)return'T';
+  if((a<cfg.adx-3&&e<.4)||(ch>=61.8&&e<.35))return'R';
+  return'X';
+}
+function mkH(D,cfg,hv){
+  if(!D||!hv||!cfg.htf)return()=>({up:true,dn:true});
+  const c=D.map(x=>x.c),e=ema(c,50),ms=MS[hv];
+  return t=>{let lo=0,hi=D.length-1,r=-1;while(lo<=hi){const m=(lo+hi)>>1;if(D[m].t+ms<=t){r=m;lo=m+1}else hi=m-1}
+    if(r<0)return{up:true,dn:true};return{up:c[r]>e[r],dn:c[r]<e[r]}}
+}
+function zones(d,I,end){
+  const a=I.atr[end-1],P=[];
+  for(let i=Math.max(5,end-300);i<end-5;i++){
+    let h=true,l=true;
+    for(let j=1;j<=5;j++){if(d[i].h<=d[i-j].h||d[i].h<=d[i+j].h)h=false;if(d[i].l>=d[i-j].l||d[i].l>=d[i+j].l)l=false}
+    if(h)P.push(d[i].h);if(l)P.push(d[i].l);
+  }
+  P.sort((x,y)=>x-y);const Z=[];
+  for(const v of P){const z=Z[Z.length-1];if(z&&v-z.hi<=.6*a){z.hi=v;z.n++}else Z.push({lo:v,hi:v,n:1})}
+  return Z;
+}
+function sigAt(d,I,i,cfg,H,tf){
+  if(cfg.news)return null;
+  if(cfg.sess&&asset==='GOLD'&&tf!=='1d'){const h=new Date(d[i].t).getUTCHours();if(h<7||h>20)return null}
+  const g=regime(I,i,cfg),b=d[i],c=b.c;
+  if(g==='T'){
+    const up=c>I.es[i]&&I.ef[i]>I.es[i],dn=c<I.es[i]&&I.ef[i]<I.es[i],vol=I.atr[i]>I.atrAvg[i]*.8,h=H(b.t);
+    if(up&&vol&&h.up){
+      if(c>rng(d,i,20,'h'))return{s:1,t:'Trend: 20-bar breakout',m:'T'};
+      if(I.rsi[i-1]<45&&I.rsi[i]>=45&&c>I.ef[i])return{s:1,t:'Trend: RSI pullback',m:'T'};
+    }
+    if(dn&&vol&&h.dn){
+      if(c<rng(d,i,20,'l'))return{s:-1,t:'Trend: 20-bar breakdown',m:'T'};
+      if(I.rsi[i-1]>55&&I.rsi[i]<=55&&c<I.ef[i])return{s:-1,t:'Trend: RSI bounce',m:'T'};
+    }
+  }
+  if(g==='R'&&cfg.rng){
+    if(c<I.bl[i]&&I.rsi[i]<30)return{s:1,t:'Range: oversold at lower band',m:'R'};
+    if(c>I.bu[i]&&I.rsi[i]>70)return{s:-1,t:'Range: overbought at upper band',m:'R'};
+  }
+  if(cfg.snp&&g!=='X'){
+    const L=rng(d,i,20,'l'),Hh=rng(d,i,20,'h'),rg=b.h-b.l||1e-9;
+    const upOk=g==='R'||c>I.es[i],dnOk=g==='R'||c<I.es[i];
+    if(upOk&&b.l<L&&c>L&&c>b.o&&(Math.min(b.o,c)-b.l)/rg>=.4&&I.rsi[i]<55)return{s:1,t:'Sniper: swept the 20-bar low, closed back above with a rejection wick',m:'S',sw:b.l};
+    if(dnOk&&b.h>Hh&&c<Hh&&c<b.o&&(b.h-Math.max(b.o,c))/rg>=.4&&I.rsi[i]>45)return{s:-1,t:'Sniper: swept the 20-bar high, closed back below with a rejection wick',m:'S',sw:b.h};
+  }
   return null;
 }
-function backtest(d,I){
+function backtest(d,I,cfg,H,tf){
   const T=[];let i=205;
   while(i<d.length-2){
-    const s=sigAt(d,I,i);
+    const s=sigAt(d,I,i,cfg,H,tf);
     if(!s){i++;continue}
-    const e=d[i+1].o,sd=2.5*I.atr[i];let st=e-s.s*sd,ext=e,x=null,j=i+1;
+    const e=d[i+1].o,m=s.m,a=I.atr[i];let stop,tg=null,mx=9999;
+    if(m==='S')stop=s.sw-s.s*.25*a;else if(m==='R'){stop=e-s.s*1.5*a;tg=I.bm[i];mx=40}else stop=e-s.s*cfg.sm*a;
+    const sd=Math.abs(e-stop);
+    if((m==='S'&&(sd<.2*a||sd>3*a))||(m==='R'&&(s.s===1?tg<=e:tg>=e))){i++;continue}
+    if(m==='S'){tg=e+s.s*2*sd;mx=30}
+    let st=stop,ext=e,x=null,j=i+1;
     for(;j<d.length;j++){
       const b=d[j];
       if(s.s===1?b.l<=st:b.h>=st){x=s.s===1?Math.min(st,b.o):Math.max(st,b.o);break}
-      ext=s.s===1?Math.max(ext,b.h):Math.min(ext,b.l);
-      const tr=ext-s.s*3*I.atr[j];st=s.s===1?Math.max(st,tr):Math.min(st,tr);
-      if(s.s===1?b.c<I.e50[j]:b.c>I.e50[j]){x=b.c;break}
+      if(tg!==null&&(s.s===1?b.h>=tg:b.l<=tg)){x=tg;break}
+      if(m==='R'&&I.adx[j]>=cfg.adx){x=b.c;break}
+      if(j-i>mx){x=b.c;break}
+      if(m==='T'){
+        ext=s.s===1?Math.max(ext,b.h):Math.min(ext,b.l);
+        const tr=ext-s.s*3*I.atr[j];st=s.s===1?Math.max(st,tr):Math.min(st,tr);
+        if(s.s===1?b.c<I.ef[j]:b.c>I.ef[j]){x=b.c;break}
+      }
     }
     if(x===null){x=d[d.length-1].c;j=d.length-1}
-    T.push(((x-e)*s.s-e*0.002)/sd);i=j+1;
+    T.push({r:((x-e)*s.s-e*.002)/sd,m});i=j+1;
   }
   return T;
 }
 function stats(T,rp){
   if(!T.length)return null;
   let eq=1,pk=1,dd=0,gw=0,gl=0,w=0;
-  T.forEach(r=>{eq*=1+rp/100*r;pk=Math.max(pk,eq);dd=Math.max(dd,1-eq/pk);if(r>0){gw+=r;w++}else gl-=r});
-  return{n:T.length,win:w/T.length*100,pf:gl?gw/gl:99,ret:(eq-1)*100,dd:dd*100,avg:T.reduce((a,b)=>a+b,0)/T.length};
+  T.forEach(({r})=>{eq*=1+rp/100*r;pk=Math.max(pk,eq);dd=Math.max(dd,1-eq/pk);if(r>0){gw+=r;w++}else gl-=r});
+  return{n:T.length,win:w/T.length*100,pf:gl?gw/gl:99,ret:(eq-1)*100,dd:dd*100,avg:T.reduce((a,b)=>a+b.r,0)/T.length};
 }
-function chart(d,I,n,sg,lv){
-  const cv=$('cv'),dpr=devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;
-  const x=cv.getContext('2d');x.scale(dpr,dpr);
+const pfOf=T=>{const s=stats(T,1);return s?fmt(s.pf,2)+' ('+s.n+')':'—'};
+
+function draw(){
+  const d=S.d,I=S.I,lv=S.lv;if(!d||!I)return;
+  const cv=$('cv'),dpr=devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
+  if(cv.width!==Math.round(W*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr)}
+  const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,W,H);
   const cs=getComputedStyle(document.documentElement),g=k=>cs.getPropertyValue(k).trim();
-  const N=120,a=n-N,sl=d.slice(a,n);
-  let lo=Math.min(...sl.map(b=>b.l),...I.e200.slice(a,n)),hi=Math.max(...sl.map(b=>b.h),...I.e200.slice(a,n));
-  if(lv){lo=Math.min(lo,lv.stop,lv.tp2);hi=Math.max(hi,lv.stop,lv.tp2)}
-  const pad=(hi-lo)*.05;lo-=pad;hi+=pad;
-  const X=i=>i/(N-1)*(W-6)+3,Y=v=>H-(v-lo)/(hi-lo)*H;
-  const line=(arr,col,w)=>{x.beginPath();x.strokeStyle=col;x.lineWidth=w;arr.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v)));x.stroke()};
-  line(I.e200.slice(a,n),g('--wn'),1.5);line(I.e50.slice(a,n),g('--ac'),1.5);line(sl.map(b=>b.c),g('--tx'),1.8);
-  if(lv)[[lv.entry,g('--tx')],[lv.stop,g('--dn')],[lv.tp2,g('--up')]].forEach(([v,c])=>{x.beginPath();x.setLineDash([5,4]);x.strokeStyle=c;x.lineWidth=1;x.moveTo(0,Y(v));x.lineTo(W,Y(v));x.stroke();x.setLineDash([])});
-  $('legend').innerHTML='Price · <span style="color:var(--ac)">EMA50</span> · <span style="color:var(--wn)">EMA200</span>'+(lv?' · dashed: entry / stop / 2R target':'');
+  const n=d.length,N=70,a=n-N,sl=d.slice(a),CW=W-52;
+  let lo=Math.min(...sl.map(b=>b.l)),hi=Math.max(...sl.map(b=>b.h));
+  if(lv){lo=Math.min(lo,lv.stop);hi=Math.max(hi,lv.stop,lv.tp)}
+  const pad=(hi-lo)*.06;lo-=pad;hi+=pad;
+  const X=i=>(i+.5)/N*CW,Y=v=>H-(v-lo)/(hi-lo)*H,cw=Math.max(1.5,CW/N*.6);
+  [[S.sup,g('--up')],[S.res,g('--dn')]].forEach(([z,c])=>{
+    if(!z||z.hi<lo||z.lo>hi)return;
+    const y1=Y(Math.min(z.hi,hi)),y2=Y(Math.max(z.lo,lo));
+    x.globalAlpha=.16;x.fillStyle=c;x.fillRect(0,y1,CW,Math.max(3,y2-y1));x.globalAlpha=1;
+  });
+  const line=(arr,col,w,dash)=>{x.beginPath();x.setLineDash(dash||[]);x.strokeStyle=col;x.lineWidth=w;arr.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v)));x.stroke();x.setLineDash([])};
+  line(I.bu.slice(a),g('--mu'),1,[2,3]);line(I.bl.slice(a),g('--mu'),1,[2,3]);
+  line(I.es.slice(a),g('--wn'),1.4);line(I.ef.slice(a),g('--ac'),1.4);
+  x.lineWidth=1;
+  sl.forEach((b,i)=>{
+    const c=b.c>=b.o?g('--up'):g('--dn');x.strokeStyle=c;x.fillStyle=c;
+    x.beginPath();x.moveTo(X(i),Y(b.h));x.lineTo(X(i),Y(b.l));x.stroke();
+    x.fillRect(X(i)-cw/2,Y(Math.max(b.o,b.c)),cw,Math.max(1,Math.abs(Y(b.o)-Y(b.c))));
+  });
+  const hl=(v,c,dash)=>{x.beginPath();x.setLineDash(dash);x.strokeStyle=c;x.lineWidth=1;x.moveTo(0,Y(v));x.lineTo(CW,Y(v));x.stroke();x.setLineDash([])};
+  if(lv){hl(lv.entry,g('--tx'),[5,4]);hl(lv.stop,g('--dn'),[5,4]);hl(lv.tp,g('--up'),[5,4])}
+  const last=d[n-1],pc=last.c>=last.o?g('--up'):g('--dn');
+  hl(last.c,pc,[2,2]);
+  x.fillStyle=pc;x.fillRect(CW,Y(last.c)-9,52,18);
+  x.fillStyle='#fff';x.font='11px sans-serif';x.fillText(fmt(last.c+S.off,S.dec),CW+3,Y(last.c)+4);
+  $('legend').innerHTML='Candles · <span style="color:var(--ac)">fast EMA</span> · <span style="color:var(--wn)">slow EMA</span> · dotted: Bollinger · green/red bands: support/resistance zones'+(lv?' · dashed: entry / stop / target':'');
 }
-async function run(){
-  const dEl=$('px');
-  try{
-    const d=await load(),I=ind(d),n=d.length-1,last=d[n],ci=n-1;
-    const dec=last.c>1000?1:last.c>10?2:4;
-    $('sym').textContent=SYM[asset]+' · '+$('tf').value+' · live (Binance)';
-    dEl.textContent='$'+fmt(last.c,dec);
-    $('upd').textContent='Updated '+new Date().toLocaleTimeString()+' · refreshes every 30s';
-    const trend=d[ci].c>I.e200[ci]&&I.e50[ci]>I.e200[ci]?1:d[ci].c<I.e200[ci]&&I.e50[ci]<I.e200[ci]?-1:0;
-    let s=null;for(let k=ci;k>=ci-1;k--){s=sigAt(d,I,k);if(s)break}
-    const atr=I.atr[ci],bal=+$('bal').value||0,rp=+$('risk').value||1;
-    let lv=null,sig=$('sig'),why=$('why'),lh=$('lv');
-    if(s){
-      const e=last.c,sd=2.5*atr,sg=s.s;
-      lv={entry:e,stop:e-sg*sd,tp1:e+sg*sd*1.5,tp2:e+sg*sd*2,tp3:e+sg*sd*3};
-      const units=bal*rp/100/sd,notional=units*e;
-      sig.textContent=sg>0?'🟢 LONG ENTRY':'🔴 SHORT ENTRY';sig.className='sig '+(sg>0?'up':'dn');
-      why.textContent='Trigger: '+s.t+' with trend and volatility confirmed.';
-      lh.innerHTML=[['Entry (now)','$'+fmt(lv.entry,dec)],['Stop loss','$'+fmt(lv.stop,dec)],['Target 1.5R','$'+fmt(lv.tp1,dec)],['Target 2R / 3R','$'+fmt(lv.tp2,dec)+' / $'+fmt(lv.tp3,dec)],['Size','$'+fmt(notional,0)+' ('+fmt(units,units<1?4:2)+')'],['Max loss','$'+fmt(bal*rp/100,2)]].map(a=>`<div>${a[0]}<b>${a[1]}</b></div>`).join('')+
-        `<div style="grid-column:1/-1">Best exit: trail the stop at highest price − 3×ATR (≈ $${fmt(3*atr,dec)} behind). Exit if a candle closes ${sg>0?'below':'above'} EMA50 ($${fmt(I.e50[ci],dec)}). ${sg<0&&asset==='GOLD'?'Shorting needs a margin/futures account.':''}</div>`;
+function zcard(){
+  const d=S.d,I=S.I;if(!d||!I)return;
+  const n=d.length-1,a=I.atr[n-1],px=d[n].c,cfg=getCfg(),P=v=>'$'+fmt(v+S.off,S.dec);
+  const z=(x,nm,sup)=>x?`<div>${nm}<b>${P(x.lo)} – ${P(x.hi)}</b><span>${x.n} touches · ${fmt(Math.abs(px-(sup?x.hi:x.lo))/a,1)} ATR away</span></div>`:`<div>${nm}<b>none nearby</b></div>`;
+  const L=rng(d,n,20,'l'),Hh=rng(d,n,20,'h');
+  $('zn').innerHTML=z(S.sup,'Support zone',true)+z(S.res,'Resistance zone',false)+
+    (cfg.snp?`<div style="grid-column:1/-1"><b>Sniper plan</b><span>Long: wait for price to dip below ${P(L)}, then a candle closing back above it with a long lower wick. Stop just under the wick, target 2R.</span><span>Short: wait for a spike above ${P(Hh)}, then a close back below it with a long upper wick. Stop just over the wick, target 2R.</span><span>Not valid when the regime is Transition or the news switch is on.</span></div>`:'');
+}
+function paint(){
+  tmr=0;const d=S.d;if(!d)return;
+  $('px').textContent='$'+fmt(d[d.length-1].c+S.off,S.dec);
+  zcard();draw();
+}
+function analyze(){
+  const cfg=getCfg(),tf=$('tf').value,d=S.d,hv=HTFM[tf];
+  const H=mkH(S.D,cfg,hv),I=ind(d,cfg),n=d.length-1,last=d[n],ci=n-1;
+  S.I=I;
+  const dec=last.c>1000?1:last.c>10?2:4,bp=+$('bp').value,off=bp>0?bp-last.c:0,P=v=>'$'+fmt(v+off,dec);
+  S.dec=dec;S.off=off;
+  S.Z=zones(d,I,n);
+  const px=last.c,below=S.Z.filter(z=>z.hi<=px).sort((a,b)=>b.hi-a.hi),above=S.Z.filter(z=>z.lo>=px).sort((a,b)=>a.lo-b.lo);
+  S.sup=below.find(z=>z.n>=2)||below[0];S.res=above.find(z=>z.n>=2)||above[0];
+  $('sym').textContent=SYM[asset]+' · '+tf+' · Binance'+(off?' · levels shifted '+fmt(off,dec)+' to your broker':'');
+  $('upd').textContent='Last full update '+new Date().toLocaleTimeString();
+  const g=regime(I,ci,cfg),rn={T:'📈 TRENDING',R:'↔️ CHOPPY / RANGING',X:'🌫 TRANSITION'}[g];
+  $('reg').textContent=rn;$('reg').className='sig '+(g==='T'?'up':g==='R'?'wn':'mu');
+  $('regd').textContent='ADX '+fmt(I.adx[ci],1)+' · CHOP '+fmt(I.chop[ci],0)+' · efficiency '+fmt(I.er[ci],2)+' · RSI '+fmt(I.rsi[ci],0)+(g==='X'?' · no clear regime: standing aside':'');
+  let s=null,k=ci;for(;k>=ci-1;k--){s=sigAt(d,I,k,cfg,H,tf);if(s)break}
+  const bal=+$('bal').value||0,rp=+$('risk').value||1,sig=$('sig'),why=$('why'),lh=$('lv');
+  S.lv=null;
+  if(s){
+    const R=s.m==='R',Sn=s.m==='S',atr=I.atr[k],e=last.c,sg=s.s;
+    let stop,tp;
+    if(Sn){stop=s.sw-sg*.25*atr;tp=e+sg*2*Math.abs(e-stop)}
+    else if(R){stop=e-sg*1.5*atr;tp=I.bm[ci]}
+    else{stop=e-sg*cfg.sm*atr;tp=e+sg*2*cfg.sm*atr}
+    const sd=Math.abs(e-stop);
+    if(Sn&&sd>3*atr){
+      sig.textContent='⏳ SNIPER MISSED';sig.className='sig wn';
+      why.textContent='Price already moved '+fmt(sd/atr,1)+' ATR from the stop. Do not chase; wait for the next sweep.';lh.innerHTML='';
     }else{
-      const tx=trend>0?'Uptrend':trend<0?'Downtrend':'No clear trend';
-      sig.textContent='⏸ WAIT';sig.className='sig wn';
-      why.textContent=tx+'. No valid entry on the last two closed candles. Patience is part of the strategy.';
-      const hh=rng(d,ci+1,20,'h'),ll=rng(d,ci+1,20,'l');
-      lh.innerHTML=`<div>Trend<b class="${trend>0?'up':trend<0?'dn':'wn'}">${tx}</b></div><div>RSI(14)<b>${fmt(I.rsi[ci],1)}</b></div>
-      <div>Long trigger above<b>${trend>=0?'$'+fmt(hh,dec):'n/a (no uptrend)'}</b></div><div>Short trigger below<b>${trend<=0?'$'+fmt(ll,dec):'n/a (no downtrend)'}</b></div>
-      <div>EMA50<b>$${fmt(I.e50[ci],dec)}</b></div><div>EMA200<b>$${fmt(I.e200[ci],dec)}</b></div>`;
+      S.lv={entry:e,stop,tp};
+      const units=bal*rp/100/sd,rr=Math.abs(tp-e)/sd;
+      sig.textContent=(Sn?'🎯 SNIPER ':'')+(sg>0?'🟢 LONG ENTRY':'🔴 SHORT ENTRY');sig.className='sig '+(sg>0?'up':'dn');
+      why.textContent=s.t;
+      lh.innerHTML=[['Entry (now)',P(e)],['Stop loss',P(stop)],[R?'Target (mid band)':'Target 2R',P(tp)],['Reward : risk',fmt(rr,1)+' : 1'],['Size','$'+fmt(units*e,0)+' ('+fmt(units,units<1?4:2)+')'],['Max loss','$'+fmt(bal*rp/100,2)]].map(a=>`<div>${a[0]}<b>${a[1]}</b></div>`).join('')+
+        `<div style="grid-column:1/-1"><span>${R?'Exit early if ADX rises to '+cfg.adx+'+ (market starts trending) or after ~40 candles.':Sn?'Exit at stop, target, or after ~30 candles.':'Trail the stop at best price − 3×ATR. Exit if a candle closes '+(sg>0?'below':'above')+' the fast EMA.'} ${sg<0&&asset==='GOLD'?'Shorting needs margin/CFD.':''}</span></div>`;
     }
-    chart(d,I,n,s,lv);
-    const st=stats(backtest(d,I),rp);
-    $('bt').innerHTML=st?[['Trades',st.n],['Win rate',fmt(st.win,0)+'%'],['Profit factor',fmt(st.pf,2)],['Avg trade',fmt(st.avg,2)+'R'],['Return @'+rp+'% risk',fmt(st.ret,0)+'%'],['Max drawdown',fmt(st.dd,0)+'%']].map(a=>`<div>${a[0]}<b>${a[1]}</b></div>`).join(''):'<div>Not enough data</div>';
-    $('btn').textContent=st?(st.pf<1.2?'Weak on this period: this timeframe or asset may not suit the strategy right now. ':'')+'Past results do not predict future results.':'';
-  }catch(e){
-    dEl.textContent='Can’t reach live data';
-    $('upd').textContent='Binance may be blocked in your region; try a VPN, or tell me your country.';
-  }
-}
-['BTC','GOLD'].forEach(a=>$('t'+a).onclick=()=>{asset=a;$('tBTC').classList.toggle('on',a==='BTC');$('tGOLD').classList.toggle('on',a==='GOLD');run()});
-['tf','bal','risk'].forEach(i=>$(i).onchange=run);
-run();setInterval(run,30000);
-</script></body></html>
+  }else{
+    sig.textContent=cfg.news?'⛔ NEWS BLACKOUT':'⏸ WAIT';sig.className='sig wn';
+    why.textContent=cfg.news?'Blackout switch is on in Settings.':'No valid entry for this regime. Standing aside is a position.';
+    const hh=rng(d,n,20,'h'),ll=rng(d,n,20,'l');
+    lh.innerHTML=g==='R'?`<div>Buy zone below<b>${P(I.bl[ci])}</b></div><div>Sell zone above<b>${P(I.bu[ci])}</b></div><div>Mid band target<b>${P(I.bm[ci])}
